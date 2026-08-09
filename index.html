@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>¿Harías esto con...?</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,500;0,700;0,900;1,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+
+<style>
+  :root{
+    --bg: #231536;
+    --bg-deep: #180d29;
+    --card: #2E1E45;
+    --card-hi: #38254f;
+    --gold: #F4B942;
+    --coral: #FF6F5E;
+    --teal: #3EC1C9;
+    --cream: #F6F1E7;
+    --muted: #B8A9CF;
+    --line: rgba(246,241,231,0.12);
+  }
+
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; padding:0; }
+
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(244,185,66,0.10), transparent 45%),
+      radial-gradient(circle at 90% 20%, rgba(62,193,201,0.10), transparent 40%),
+      var(--bg);
+    color: var(--cream);
+    font-family: 'Inter', sans-serif;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 24px;
+  }
+
+  .stage{
+    width:100%;
+    max-width: 640px;
+  }
+
+  h1,h2,h3{ font-family:'Fraunces', serif; margin:0; }
+
+  .eyebrow{
+    font-size:12px;
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color: var(--teal);
+    font-weight:700;
+    margin-bottom:10px;
+  }
+
+  /* ---------- Pantalla de selección ---------- */
+  .select-screen{
+    background: var(--card);
+    border:1px solid var(--line);
+    border-radius:24px;
+    padding:40px 32px;
+    text-align:center;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.35);
+  }
+  .select-screen h1{
+    font-size: clamp(32px,6vw,48px);
+    font-weight:900;
+    font-style:italic;
+    line-height:1.05;
+    margin-bottom:8px;
+  }
+  .select-screen p{
+    color:var(--muted);
+    margin:0 0 28px;
+    font-size:15px;
+  }
+  select{
+    width:100%;
+    padding:16px 18px;
+    border-radius:14px;
+    border:1px solid var(--line);
+    background: var(--bg-deep);
+    color: var(--cream);
+    font-family:'Inter';
+    font-size:16px;
+    font-weight:600;
+    appearance:none;
+    margin-bottom:18px;
+  }
+  button.primary{
+    width:100%;
+    padding:16px;
+    border-radius:14px;
+    border:none;
+    background: linear-gradient(135deg, var(--gold), #e0972f);
+    color: #241304;
+    font-weight:800;
+    font-size:16px;
+    cursor:pointer;
+    font-family:'Inter';
+    transition: transform .15s ease;
+  }
+  button.primary:disabled{ opacity:.4; cursor:not-allowed; }
+  button.primary:not(:disabled):hover{ transform: translateY(-2px); }
+
+  /* ---------- Carta de pregunta ---------- */
+  .card-wrap{ display:none; }
+  .deck-count{
+    display:flex; justify-content:space-between; align-items:center;
+    margin-bottom:14px; color:var(--muted); font-size:13px; font-weight:600;
+  }
+  .progress-track{
+    height:6px; background:var(--line); border-radius:99px; overflow:hidden; margin-bottom:22px;
+  }
+  .progress-fill{
+    height:100%; background: linear-gradient(90deg, var(--teal), var(--gold));
+    width:0%; transition: width .3s ease;
+  }
+
+  .question-card{
+    background: var(--card);
+    border:1px solid var(--line);
+    border-radius:24px;
+    padding:32px 28px;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.35);
+    animation: dealIn .35s ease;
+  }
+  @keyframes dealIn{
+    from{ opacity:0; transform: translateY(14px) rotate(-1deg); }
+    to{ opacity:1; transform: translateY(0) rotate(0); }
+  }
+
+  .card-label{
+    font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--coral); font-weight:700; margin-bottom:10px;
+  }
+  .question-text{
+    font-size: clamp(22px,4.4vw,28px);
+    font-weight:700;
+    font-style:italic;
+    line-height:1.2;
+    margin-bottom:26px;
+  }
+
+  .person-row{
+    border-top:1px solid var(--line);
+    padding:16px 0;
+  }
+  .person-row:first-of-type{ border-top:none; padding-top:0; }
+  .person-name{
+    font-weight:800;
+    font-size:15px;
+    margin-bottom:10px;
+    color: var(--cream);
+  }
+  .opts{
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap:8px;
+  }
+  .opt-btn{
+    padding:10px 4px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    background: var(--bg-deep);
+    color: var(--muted);
+    font-family:'Inter';
+    font-weight:700;
+    font-size:11.5px;
+    cursor:pointer;
+    line-height:1.2;
+  }
+  .opt-btn[data-opt="ABSOLUTAMENTE SI"].active{ background: var(--gold); border-color: var(--gold); color:#241304; }
+  .opt-btn[data-opt="SI"].active{ background: var(--teal); border-color: var(--teal); color:#0b2426; }
+  .opt-btn[data-opt="TAL VEZ"].active{ background:#8C7BC7; border-color:#8C7BC7; color:#1b1030; }
+  .opt-btn[data-opt="NO"].active{ background: var(--coral); border-color: var(--coral); color:#340c08; }
+  .opt-btn:disabled:not(.active){ opacity:.28; cursor:not-allowed; }
+
+  .nav-row{ margin-top:26px; display:flex; justify-content:flex-end; }
+  .nav-row button{ min-width:150px; }
+
+  .save-flag{
+    font-size:12px; color: var(--teal); text-align:center; margin-top:14px; opacity:0; transition:opacity .25s;
+  }
+  .save-flag.show{ opacity:1; }
+
+  /* ---------- Resultado ---------- */
+  .result-screen{ display:none; }
+  .result-card{
+    background: var(--card); border:1px solid var(--line); border-radius:24px;
+    padding:32px 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.35);
+  }
+  .result-card h2{ font-size:28px; font-weight:900; font-style:italic; margin-bottom:6px; }
+  .result-card > p.sub{ color:var(--muted); margin:0 0 26px; font-size:14px; }
+
+  .affinity-block{
+    border-top:1px solid var(--line);
+    padding:22px 0;
+  }
+  .affinity-block:first-of-type{ border-top:none; }
+  .affinity-head{
+    display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;
+  }
+  .affinity-head .name{ font-weight:800; font-size:17px; }
+  .affinity-head .pct{ font-family:'Fraunces'; font-weight:900; font-size:22px; color:var(--gold); }
+  .affinity-comment{ color:var(--muted); font-size:13.5px; line-height:1.5; margin-bottom:14px; }
+  canvas.mini-chart{ max-height:120px; }
+
+  #pdfBtn{ margin-top:28px; }
+
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="stage">
+
+  <!-- PANTALLA 1: SELECCIÓN -->
+  <div class="select-screen" id="selectScreen">
+    <div class="eyebrow">Antes de empezar</div>
+    <h1>¿Harías esto<br>con...?</h1>
+    <p>Elige quién eres. Tu nombre no aparecerá como opción dentro del cuestionario.</p>
+    <select id="nameSelect">
+      <option value="" disabled selected>Selecciona tu nombre</option>
+      <option value="Sara">Sara</option>
+      <option value="Jeandry">Jeandry</option>
+      <option value="Henyer">Henyer</option>
+      <option value="Valeria">Valeria</option>
+      <option value="Vale">Vale</option>
+    </select>
+    <button class="primary" id="startBtn" disabled>Comenzar</button>
+  </div>
+
+  <!-- PANTALLA 2: CUESTIONARIO -->
+  <div class="card-wrap" id="quizScreen">
+    <div class="deck-count">
+      <span id="deckLabel">Carta 01 / 100</span>
+      <span id="deckPlayer"></span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+    <div class="question-card">
+      <div class="card-label">¿Harías esto con...?</div>
+      <div class="question-text" id="questionText">—</div>
+      <div id="peopleContainer"></div>
+      <div class="nav-row">
+        <button class="primary" id="nextBtn" disabled>Siguiente</button>
+      </div>
+      <div class="save-flag" id="saveFlag">Guardado ✓</div>
+    </div>
+  </div>
+
+  <!-- PANTALLA 3: RESULTADO / DIAGNÓSTICO -->
+  <div class="result-screen" id="resultScreen">
+    <div class="result-card" id="resultCard">
+      <div class="eyebrow">Diagnóstico final</div>
+      <h2 id="resultTitle">Tus resultados</h2>
+      <p class="sub">Basado en tus 100 respuestas, esto refleja tu afinidad con cada persona.</p>
+      <div id="affinityContainer"></div>
+    </div>
+    <button class="primary" id="pdfBtn">Descargar PDF diagnóstico</button>
+  </div>
+
+</div>
+
+<script>
+/* ======================= CONFIGURA TUS CREDENCIALES ======================= */
+const SUPABASE_URL = "TU_SUPABASE_URL";
+const SUPABASE_ANON_KEY = "TU_SUPABASE_ANON_KEY";
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/* =========================================================================== */
+
+const ALL_NAMES = ["Sara","Jeandry","Henyer","Valeria","Vale"];
+const OPTIONS = ["ABSOLUTAMENTE SI","SI","TAL VEZ","NO"];
+const WEIGHTS = { "ABSOLUTAMENTE SI":100, "SI":75, "TAL VEZ":50, "NO":0 };
+
+const QUESTIONS = [
+"Saltar en paracaídas","Cocinar una pizza desde cero","Robar un banco","Asaltar una tienda de dulces",
+"Dormir en la misma cama","Emborracharse","Bailar reggaetón pegados","Ver una película de terror abrazados",
+"Correr una maratón","Hacer un maratón de series toda la noche","Ir de camping sin señal","Comer algo picante extremo",
+"Cantar karaoke en público","Hacer un viaje sorpresa sin planear nada","Nadar en el mar de noche","Pintar un mural juntos",
+"Hacerse un tatuaje twin","Comer comida extraña","Ir a un concierto y perderse entre la multitud","Compartir la última porción de comida",
+"Hacer trampa jugando cartas en un casino","Ir de compras y gastar todo el presupuesto","Aprender un idioma nuevo","Ir a un parque de diversiones y subir a la montaña rusa más alta",
+"Hacer una fogata en la playa","Contar secretos vergonzosos","Hacer senderismo","Bucear con tiburones",
+"Ir a un zoológico","Compartir el mismo helado con dos cucharas","Hacer una broma pesada a un profesor","Ir de road trip sin GPS",
+"Dormir bajo las estrellas","Aprender a tocar guitarra juntos","Meterse a bañar en una piscina de noche a escondidas","Ir a un festival de música",
+"Cocinar algo difícil","Ir en moto","Ver el amanecer despiertos toda la noche","Ir a una feria y subir a todos los juegos",
+"Contar chistes malos hasta hacer reír al otro","Ir a esquiar","Hacer una guerra de comida","Compartir audífonos escuchando música",
+"Ir a un escape room","Saltar en bungee","Hacer una videollamada","Ir a acampar en la montaña sin cobertura",
+"Aprender a surfear","Hacer una apuesta tonta","Ir a un after party","Compartir un secreto que nunca le has dicho a nadie",
+"Hacer una locura en año nuevo","Recorrer una ciudad nueva sin mapa","Cantar una serenata","Bailar salsa sin saber los pasos",
+"Meterte a un lugar prohibido","Comer comida callejera a medianoche","Hacer una maratón de anime","Jugar videojuegos toda la noche",
+"Ir a un crucero","Salir de fiesta disfrazados","Hacer una competencia de comer picante","Confesarle algo que te da pena",
+"Compartir sombrilla bajo la lluvia","Bailar bachata muy pegados","Dormir en el sofá juntos viendo películas","Ir a la playa y quedarse hasta que oscurezca",
+"Hacer un reto viral de TikTok","Ir a una boda como acompañante","Cuidar una mascota juntos","Ir a una montaña rusa de noche",
+"Compartir contraseñas del celular","Ir a comprar comida chatarra","Hacer una excursión sin saber a dónde van","Pedir un pedido a una dirección aleatoria",
+"Ir a nadar en un río sin ropa","Bailar en la calle de forma random","Hacer una fiesta sorpresa","Viajar por el mundo",
+"Compartir la comida","Ir a un spa","Aprender a cocinar sushi","Ver una película de terror",
+"Ver una serie romántica","Salir a correr temprano un domingo","Ir de pesca todo el día","Ir a un cementerio abandonado",
+"Compartir la cama en un viaje por falta de espacio","Ir a una fiesta de disfraces","Aprender a bailar tango","Hacer una llamada que dure hasta a las 2am",
+"Ir a un autocine","Recorrer un museo tomados de la mano","Compartir una manta viendo una película","Hacer una pijamada",
+"Ir de viaje solo con lo que quepa en una mochila","Confesarle que te gusta alguien","Estar con esa persona un día entero sin celular","Ayudar a animales indefensos"
+];
+
+let currentUser = null;
+let otherNames = [];
+let qIndex = 0;
+let currentAssignments = {}; // { personName: option } para la pregunta actual
+let history = []; // [{ persona, opcion }] por pregunta, para el diagnóstico final -> history[personIndexInOtherNames][qIndex]
+let allAnswers = {}; // allAnswers[persona][qIndex] = opcion
+
+// ---------- Pantalla 1 ----------
+const nameSelect = document.getElementById('nameSelect');
+const startBtn = document.getElementById('startBtn');
+nameSelect.addEventListener('change', () => { startBtn.disabled = !nameSelect.value; });
+
+startBtn.addEventListener('click', () => {
+  currentUser = nameSelect.value;
+  otherNames = ALL_NAMES.filter(n => n !== currentUser);
+  otherNames.forEach(n => allAnswers[n] = {});
+  document.getElementById('selectScreen').style.display = 'none';
+  document.getElementById('quizScreen').style.display = 'block';
+  document.getElementById('deckPlayer').textContent = currentUser;
+  renderQuestion();
+});
+
+// ---------- Pantalla 2: cuestionario ----------
+const questionText = document.getElementById('questionText');
+const peopleContainer = document.getElementById('peopleContainer');
+const nextBtn = document.getElementById('nextBtn');
+const deckLabel = document.getElementById('deckLabel');
+const progressFill = document.getElementById('progressFill');
+const saveFlag = document.getElementById('saveFlag');
+
+function renderQuestion(){
+  currentAssignments = {};
+  questionText.textContent = QUESTIONS[qIndex];
+  deckLabel.textContent = `Carta ${String(qIndex+1).padStart(2,'0')} / 100`;
+  progressFill.style.width = `${((qIndex)/100)*100}%`;
+  nextBtn.disabled = true;
+
+  peopleContainer.innerHTML = '';
+  otherNames.forEach(person => {
+    const row = document.createElement('div');
+    row.className = 'person-row';
+
+    const label = document.createElement('div');
+    label.className = 'person-name';
+    label.textContent = person;
+    row.appendChild(label);
+
+    const opts = document.createElement('div');
+    opts.className = 'opts';
+    OPTIONS.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.className = 'opt-btn';
+      btn.dataset.opt = opt;
+      btn.dataset.person = person;
+      btn.textContent = opt;
+      btn.addEventListener('click', () => selectOption(person, opt));
+      opts.appendChild(btn);
+    });
+    row.appendChild(opts);
+    peopleContainer.appendChild(row);
+  });
+}
+
+function selectOption(person, opt){
+  // si esa opción ya la tiene otra persona en esta pregunta, no hacer nada
+  const takenBy = Object.entries(currentAssignments).find(([p,o]) => o === opt);
+  if (takenBy && takenBy[0] !== person) return;
+
+  currentAssignments[person] = opt;
+  refreshButtons();
+  saveAnswer(person, opt);
+
+  if (Object.keys(currentAssignments).length === otherNames.length){
+    nextBtn.disabled = false;
+  }
+}
+
+function refreshButtons(){
+  document.querySelectorAll('.opt-btn').forEach(btn => {
+    const person = btn.dataset.person;
+    const opt = btn.dataset.opt;
+    const assignedToThisPerson = currentAssignments[person] === opt;
+    const optTakenByOther = Object.entries(currentAssignments).some(([p,o]) => o === opt && p !== person);
+
+    btn.classList.toggle('active', assignedToThisPerson);
+    btn.disabled = optTakenByOther && !assignedToThisPerson;
+  });
+}
+
+async function saveAnswer(person, opt){
+  allAnswers[person][qIndex] = opt;
+  try{
+    await supabaseClient.from('respuestas').upsert({
+      quien_responde: currentUser,
+      persona_evaluada: person,
+      pregunta_numero: qIndex + 1,
+      pregunta_texto: QUESTIONS[qIndex],
+      respuesta: opt
+    }, { onConflict: 'quien_responde,persona_evaluada,pregunta_numero' });
+    flashSaved();
+  }catch(e){
+    console.error('Error guardando en Supabase:', e);
+  }
+}
+
+function flashSaved(){
+  saveFlag.classList.add('show');
+  clearTimeout(flashSaved._t);
+  flashSaved._t = setTimeout(() => saveFlag.classList.remove('show'), 900);
+}
+
+nextBtn.addEventListener('click', () => {
+  qIndex++;
+  if (qIndex >= QUESTIONS.length){
+    finishQuiz();
+  } else {
+    renderQuestion();
+  }
+});
+
+// ---------- Pantalla 3: diagnóstico ----------
+function finishQuiz(){
+  document.getElementById('quizScreen').style.display = 'none';
+  document.getElementById('resultScreen').style.display = 'block';
+  document.getElementById('resultTitle').textContent = `${currentUser}, esto dice tu diagnóstico`;
+
+  const container = document.getElementById('affinityContainer');
+  container.innerHTML = '';
+
+  otherNames.forEach((person, idx) => {
+    const answersForPerson = allAnswers[person];
+    const total = QUESTIONS.length;
+    const counts = { "ABSOLUTAMENTE SI":0, "SI":0, "TAL VEZ":0, "NO":0 };
+    let sumWeight = 0;
+    for (let i=0;i<total;i++){
+      const opt = answersForPerson[i];
+      if (opt){ counts[opt]++; sumWeight += WEIGHTS[opt]; }
+    }
+    const pct = Math.round(sumWeight / total);
+
+    const block = document.createElement('div');
+    block.className = 'affinity-block';
+    block.innerHTML = `
+      <div class="affinity-head">
+        <span class="name">${person}</span>
+        <span class="pct">${pct}%</span>
+      </div>
+      <div class="affinity-comment">${buildComment(person, pct, counts)}</div>
+      <canvas class="mini-chart" id="chart-${idx}"></canvas>
+    `;
+    container.appendChild(block);
+  });
+
+  // dibujar charts después de insertar el HTML
+  otherNames.forEach((person, idx) => {
+    const answersForPerson = allAnswers[person];
+    const counts = { "ABSOLUTAMENTE SI":0, "SI":0, "TAL VEZ":0, "NO":0 };
+    Object.values(answersForPerson).forEach(opt => counts[opt]++);
+    const ctx = document.getElementById(`chart-${idx}`).getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: OPTIONS,
+        datasets: [{
+          data: OPTIONS.map(o => counts[o]),
+          backgroundColor: ['#F4B942','#3EC1C9','#8C7BC7','#FF6F5E'],
+          borderRadius: 6
+        }]
+      },
+      options: {
+        plugins: { legend: { display:false } },
+        scales: {
+          x: { ticks:{ color:'#B8A9CF', font:{ size:10 } }, grid:{ display:false } },
+          y: { ticks:{ color:'#B8A9CF' }, grid:{ color:'rgba(246,241,231,0.08)' } }
+        }
+      }
+    });
+  });
+}
+
+function buildComment(person, pct, counts){
+  if (pct >= 80) return `Con ${person} hay una conexión muy fuerte: la mayoría de tus respuestas fueron ABSOLUTAMENTE SI o SI. Se llevan muy bien.`;
+  if (pct >= 60) return `Con ${person} tienes buena onda en general, con algo de terreno seguro y algo de duda ocasional.`;
+  if (pct >= 40) return `Con ${person} hay bastante TAL VEZ: la relación tiene potencial pero todavía hay cosas por confirmar.`;
+  return `Con ${person} predominó el NO. Puede que aún no exista tanta confianza o afinidad en varios escenarios.`;
+}
+
+// ---------- Descargar PDF ----------
+document.getElementById('pdfBtn').addEventListener('click', async () => {
+  const { jsPDF } = window.jspdf;
+  const target = document.getElementById('resultCard');
+  const canvas = await html2canvas(target, { backgroundColor: '#231536', scale: 2 });
+  const imgData = canvas.toDataURL('image/png');
+
+  const pdf = new jsPDF('p','mm','a4');
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth;
+  const imgHeight = canvas.height * imgWidth / canvas.width;
+
+  let heightLeft = imgHeight;
+  let position = 0;
+
+  pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+  heightLeft -= pageHeight;
+
+  while (heightLeft > 0){
+    position = heightLeft - imgHeight;
+    pdf.addPage();
+    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+    heightLeft -= pageHeight;
+  }
+
+  pdf.save(`diagnostico-${currentUser}.pdf`);
+});
+</script>
+</body>
+</html>
