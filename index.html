@@ -216,6 +216,27 @@
   #pdfBtn{ margin-top:28px; }
 
   .hidden{ display:none !important; }
+
+  /* ---------- Ajustes para teléfonos ---------- */
+  @media (max-width: 480px){
+    body{ padding:14px; align-items:flex-start; }
+    .select-screen{ padding:28px 20px; border-radius:20px; }
+    .select-screen h1{ font-size: 30px; }
+    .question-card{ padding:22px 16px; border-radius:20px; }
+    .question-text{ font-size:20px; margin-bottom:20px; }
+    .opts{ grid-template-columns: repeat(2, 1fr); gap:8px; }
+    .opt-btn{ font-size:12.5px; padding:12px 6px; min-height:44px; }
+    .person-row{ padding:14px 0; }
+    .deck-count{ font-size:12px; }
+    .result-card{ padding:24px 18px; }
+    .affinity-head .name{ font-size:15px; }
+    .affinity-head .pct{ font-size:19px; }
+  }
+
+  @media (max-width: 340px){
+    .opts{ grid-template-columns: 1fr 1fr; }
+    .opt-btn{ font-size:12px; }
+  }
 </style>
 </head>
 <body>
