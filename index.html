@@ -10,6 +10,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 
@@ -204,12 +205,52 @@
     border-top:1px solid var(--line);
     padding:22px 0;
   }
-  .affinity-block:first-of-type{ border-top:none; }
+  .affinity-block:first-of-type{ border-top:1px solid var(--line); margin-top:14px; padding-top:22px; }
   .affinity-head{
     display:flex; justify-content:space-between; align-items:baseline; margin-bottom:8px;
   }
   .affinity-head .name{ font-weight:800; font-size:17px; }
-  .affinity-head .pct{ font-family:'Fraunces'; font-weight:900; font-size:22px; color:var(--gold); }
+  .pct-wrap{ display:flex; flex-direction:column; align-items:flex-end; }
+  .affinity-head .pct{ font-family:'Fraunces'; font-weight:900; font-size:22px; color:var(--gold); line-height:1; }
+  .pct-label{ font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-top:2px; }
+  .calc-note{
+    font-size:11.5px; color:var(--muted); line-height:1.5; margin-bottom:24px;
+    border:1px solid var(--line); border-radius:12px; padding:10px 12px;
+  }
+  .chart-caption{ font-size:11px; color:var(--muted); margin-top:6px; text-align:center; }
+
+  .ranking-block{
+    background: var(--bg-deep);
+    border:1px solid var(--line);
+    border-radius:16px;
+    padding:20px;
+    margin-bottom:8px;
+  }
+  .ranking-title{ font-family:'Fraunces'; font-weight:800; font-size:17px; margin-bottom:8px; }
+  .ranking-lead{ font-size:13px; color:var(--muted); line-height:1.5; margin-bottom:16px; }
+  .rank-item{
+    display:flex; align-items:center; gap:12px;
+    padding:8px 0; border-top:1px solid var(--line);
+  }
+  .rank-item:first-of-type{ border-top:none; }
+  .rank-pos{
+    width:22px; height:22px; border-radius:50%;
+    background: var(--card-hi); color:var(--gold);
+    font-size:11px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .rank-name{ flex:1; font-weight:700; font-size:14px; }
+  .rank-pct{ font-family:'Fraunces'; font-weight:800; color:var(--gold); font-size:15px; }
+
+  .examples-block{ margin-top:16px; }
+  .ex-title{
+    font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
+    margin-bottom:8px;
+  }
+  .ex-title.yes{ color: var(--gold); }
+  .ex-title.no{ color: var(--coral); }
+  .ex-list{ margin:0; padding-left:18px; }
+  .ex-list li{ font-size:13px; color:var(--cream); line-height:1.6; }
   .affinity-comment{ color:var(--muted); font-size:13.5px; line-height:1.5; margin-bottom:14px; }
   canvas.mini-chart{ max-height:120px; }
 
@@ -284,6 +325,7 @@
       <div class="eyebrow">Diagnóstico final</div>
       <h2 id="resultTitle">Tus resultados</h2>
       <p class="sub">Basado en tus 100 respuestas, esto refleja tu afinidad con cada persona.</p>
+      <div class="calc-note">El % de afinidad es un promedio ponderado: ABSOLUTAMENTE SI = 100 pts, SI = 75 pts, TAL VEZ = 50 pts, NO = 0 pts, sumados sobre las 100 preguntas. No es lo mismo que "cuál opción usaste más" — eso lo ves abajo, en el comentario y en la gráfica.</div>
       <div id="affinityContainer"></div>
     </div>
     <button class="primary" id="pdfBtn">Descargar PDF diagnóstico</button>
@@ -459,6 +501,31 @@ function finishQuiz(){
   const container = document.getElementById('affinityContainer');
   container.innerHTML = '';
 
+  // ---- calcular % de cada persona para el ranking ----
+  const summary = otherNames.map(person => {
+    const answersForPerson = allAnswers[person];
+    let sumWeight = 0;
+    for (let i=0;i<QUESTIONS.length;i++){
+      sumWeight += WEIGHTS[answersForPerson[i]] || 0;
+    }
+    return { person, pct: Math.round(sumWeight / QUESTIONS.length) };
+  }).sort((a,b) => b.pct - a.pct);
+
+  const rankingBlock = document.createElement('div');
+  rankingBlock.className = 'ranking-block';
+  const rankingItems = summary.map((s,i) => `
+    <div class="rank-item">
+      <span class="rank-pos">${i+1}</span>
+      <span class="rank-name">${s.person}</span>
+      <span class="rank-pct">${s.pct}%</span>
+    </div>`).join('');
+  rankingBlock.innerHTML = `
+    <div class="ranking-title">Resumen general</div>
+    <div class="ranking-lead">Con <b>${summary[0].person}</b> tienes la mayor afinidad (${summary[0].pct}%). Con <b>${summary[summary.length-1].person}</b> la más baja (${summary[summary.length-1].pct}%).</div>
+    ${rankingItems}
+  `;
+  container.appendChild(rankingBlock);
+
   otherNames.forEach((person, idx) => {
     const answersForPerson = allAnswers[person];
     const total = QUESTIONS.length;
@@ -470,15 +537,29 @@ function finishQuiz(){
     }
     const pct = Math.round(sumWeight / total);
 
+    const yesExamples = getExamples(answersForPerson, "ABSOLUTAMENTE SI", 3);
+    const noExamples = getExamples(answersForPerson, "NO", 3);
+
     const block = document.createElement('div');
     block.className = 'affinity-block';
     block.innerHTML = `
       <div class="affinity-head">
         <span class="name">${person}</span>
-        <span class="pct">${pct}%</span>
+        <span class="pct-wrap"><span class="pct">${pct}%</span><span class="pct-label">afinidad</span></span>
       </div>
       <div class="affinity-comment">${buildComment(person, pct, counts)}</div>
       <canvas class="mini-chart" id="chart-${idx}"></canvas>
+      <div class="chart-caption">Cantidad de respuestas por opción (de ${QUESTIONS.length})</div>
+      ${yesExamples.length ? `
+        <div class="examples-block">
+          <div class="ex-title yes">Le dirías que sí sin dudar a...</div>
+          <ul class="ex-list">${yesExamples.map(q => `<li>${q}</li>`).join('')}</ul>
+        </div>` : ''}
+      ${noExamples.length ? `
+        <div class="examples-block">
+          <div class="ex-title no">Ni loco/a haría esto con ${person}...</div>
+          <ul class="ex-list">${noExamples.map(q => `<li>${q}</li>`).join('')}</ul>
+        </div>` : ''}
     `;
     container.appendChild(block);
   });
@@ -499,22 +580,55 @@ function finishQuiz(){
           borderRadius: 6
         }]
       },
+      plugins: [ChartDataLabels],
       options: {
-        plugins: { legend: { display:false } },
+        plugins: {
+          legend: { display:false },
+          datalabels: {
+            anchor: 'end',
+            align: 'top',
+            color: '#F6F1E7',
+            font: { weight: '800', size: 12 },
+            formatter: (value) => value
+          }
+        },
+        layout: { padding: { top: 18 } },
         scales: {
           x: { ticks:{ color:'#B8A9CF', font:{ size:10 } }, grid:{ display:false } },
-          y: { ticks:{ color:'#B8A9CF' }, grid:{ color:'rgba(246,241,231,0.08)' } }
+          y: { display:false, suggestedMax: Math.max(...OPTIONS.map(o=>counts[o])) + 3 }
         }
       }
     });
   });
 }
 
+function getExamples(answersForPerson, opt, limit){
+  const matches = [];
+  for (let i=0;i<QUESTIONS.length;i++){
+    if (answersForPerson[i] === opt){ matches.push(QUESTIONS[i]); }
+  }
+  // baraja simple para que no siempre salgan las primeras preguntas del mazo
+  for (let i = matches.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [matches[i], matches[j]] = [matches[j], matches[i]];
+  }
+  return matches.slice(0, limit);
+}
+
 function buildComment(person, pct, counts){
-  if (pct >= 80) return `Con ${person} hay una conexión muy fuerte: la mayoría de tus respuestas fueron ABSOLUTAMENTE SI o SI. Se llevan muy bien.`;
-  if (pct >= 60) return `Con ${person} tienes buena onda en general, con algo de terreno seguro y algo de duda ocasional.`;
-  if (pct >= 40) return `Con ${person} hay bastante TAL VEZ: la relación tiene potencial pero todavía hay cosas por confirmar.`;
-  return `Con ${person} predominó el NO. Puede que aún no exista tanta confianza o afinidad en varios escenarios.`;
+  const total = OPTIONS.reduce((sum,o) => sum + counts[o], 0);
+  const maxCount = Math.max(...OPTIONS.map(o => counts[o]));
+  const dominants = OPTIONS.filter(o => counts[o] === maxCount);
+  const domLabel = dominants.map(d => d.toLowerCase()).join(' y ');
+  const domPct = total ? Math.round((maxCount/total)*100) : 0;
+
+  let tone;
+  if (pct >= 80) tone = `Con ${person} hay una conexión muy fuerte en general.`;
+  else if (pct >= 60) tone = `Con ${person} tienes buena onda en general.`;
+  else if (pct >= 40) tone = `Con ${person} las respuestas están divididas.`;
+  else tone = `Con ${person} predominó una postura más reservada.`;
+
+  return `${tone} La respuesta que más se repitió fue "${dominants.join(' y ')}" (${maxCount} de ${total} preguntas, ${domPct}%).`;
 }
 
 // ---------- Descargar PDF ----------
