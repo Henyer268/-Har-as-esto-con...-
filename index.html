@@ -48,6 +48,37 @@
   .stage{
     width:100%;
     max-width: 640px;
+    position:relative;
+    z-index:1;
+  }
+
+  /* ---------- Animación de fondo: checks y equis flotando ---------- */
+  .bg-fx{
+    position:fixed;
+    inset:0;
+    z-index:0;
+    overflow:hidden;
+    pointer-events:none;
+  }
+  .bg-icon{
+    position:absolute;
+    bottom:-10vh;
+    font-weight:900;
+    line-height:1;
+    opacity:0;
+    animation-name: floatUp;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+    user-select:none;
+  }
+  .bg-icon.check{ color: #3ED598; text-shadow: 0 0 14px rgba(62,213,152,0.45); }
+  .bg-icon.cross{ color: #FF5C5C; text-shadow: 0 0 14px rgba(255,92,92,0.45); }
+
+  @keyframes floatUp{
+    0%   { transform: translateY(0) translateX(0) rotate(0deg); opacity:0; }
+    8%   { opacity:.32; }
+    88%  { opacity:.32; }
+    100% { transform: translateY(-115vh) translateX(var(--drift,40px)) rotate(var(--spin,20deg)); opacity:0; }
   }
 
   h1,h2,h3{ font-family:'Fraunces', serif; margin:0; }
@@ -282,6 +313,8 @@
 </head>
 <body>
 
+<div class="bg-fx" id="bgFx"></div>
+
 <div class="stage">
 
   <!-- PANTALLA 1: SELECCIÓN -->
@@ -378,6 +411,34 @@ let qIndex = 0;
 let currentAssignments = {}; // { personName: option } para la pregunta actual
 let history = []; // [{ persona, opcion }] por pregunta, para el diagnóstico final -> history[personIndexInOtherNames][qIndex]
 let allAnswers = {}; // allAnswers[persona][qIndex] = opcion
+
+// ---------- Animación de fondo: checks y equis flotando ----------
+function spawnBgIcons(count = 22){
+  const wrap = document.getElementById('bgFx');
+  for (let i = 0; i < count; i++){
+    const el = document.createElement('span');
+    const isCheck = Math.random() > 0.5;
+    el.className = `bg-icon ${isCheck ? 'check' : 'cross'}`;
+    el.textContent = isCheck ? '✓' : '✕';
+
+    const size = 18 + Math.random() * 34;        // 18px - 52px
+    const left = Math.random() * 100;             // 0% - 100%
+    const duration = 10 + Math.random() * 14;     // 10s - 24s
+    const delay = Math.random() * -24;            // arrancan en puntos distintos del ciclo
+    const drift = (Math.random() * 120 - 60).toFixed(0) + 'px'; // deriva lateral
+    const spin = (Math.random() * 60 - 30).toFixed(0) + 'deg';
+
+    el.style.left = `${left}%`;
+    el.style.fontSize = `${size}px`;
+    el.style.animationDuration = `${duration}s`;
+    el.style.animationDelay = `${delay}s`;
+    el.style.setProperty('--drift', drift);
+    el.style.setProperty('--spin', spin);
+
+    wrap.appendChild(el);
+  }
+}
+spawnBgIcons();
 
 // ---------- Pantalla 1 ----------
 const nameSelect = document.getElementById('nameSelect');
