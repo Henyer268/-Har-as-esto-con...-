@@ -503,7 +503,6 @@ function selectOption(person, opt){
 
   currentAssignments[person] = opt;
   refreshButtons();
-  saveAnswer(person, opt);
 
   if (Object.keys(currentAssignments).length === otherNames.length){
     nextBtn.disabled = false;
@@ -522,19 +521,25 @@ function refreshButtons(){
   });
 }
 
-async function saveAnswer(person, opt){
-  allAnswers[person][qIndex] = opt;
+async function saveQuestionBatch(){
+  const rows = otherNames.map(person => ({
+    quien_responde: currentUser,
+    persona_evaluada: person,
+    pregunta_numero: qIndex + 1,
+    pregunta_texto: QUESTIONS[qIndex],
+    respuesta: currentAssignments[person]
+  }));
+
   try{
-    await supabaseClient.from('respuestas').upsert({
-      quien_responde: currentUser,
-      persona_evaluada: person,
-      pregunta_numero: qIndex + 1,
-      pregunta_texto: QUESTIONS[qIndex],
-      respuesta: opt
-    }, { onConflict: 'quien_responde,persona_evaluada,pregunta_numero' });
+    const { error } = await supabaseClient
+      .from('respuestas')
+      .upsert(rows, { onConflict: 'quien_responde,persona_evaluada,pregunta_numero' });
+    if (error) throw error;
     flashSaved();
+    return true;
   }catch(e){
     console.error('Error guardando en Supabase:', e);
+    return false;
   }
 }
 
@@ -544,7 +549,25 @@ function flashSaved(){
   flashSaved._t = setTimeout(() => saveFlag.classList.remove('show'), 900);
 }
 
-nextBtn.addEventListener('click', () => {
+nextBtn.addEventListener('click', async () => {
+  nextBtn.disabled = true;
+  nextBtn.textContent = 'Guardando...';
+
+  // guardar en memoria local para el diagnóstico final
+  otherNames.forEach(person => {
+    allAnswers[person][qIndex] = currentAssignments[person];
+  });
+
+  const ok = await saveQuestionBatch();
+  nextBtn.textContent = 'Siguiente';
+
+  if (!ok){
+    // deja reintentar sin perder las respuestas ya elegidas en esta carta
+    nextBtn.disabled = false;
+    alert('No se pudo guardar esta pregunta. Revisa tu conexión e intenta de nuevo.');
+    return;
+  }
+
   qIndex++;
   if (qIndex >= QUESTIONS.length){
     finishQuiz();
